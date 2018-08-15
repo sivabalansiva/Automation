@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>JSON Parser</title>
+		
+		<link rel="stylesheet" href="https://cdn.rawgit.com/codemirror/CodeMirror/master/lib/codemirror.css">
+		<link rel="stylesheet" href="https://cdn.rawgit.com/codemirror/CodeMirror/master/addon/fold/foldgutter.css" />
+		<style>
+			#container {
+				margin-left: 20%;
+				margin-right: 20%;
+			}
+			h1 {
+				padding-left:5%;
+			}
+			.some-css {
+			  	color: red;
+			  	line-height: 3;
+			}
+			.CodeMirror {
+				border-top: 1px solid black; 
+				border-bottom: 1px solid black; 
+				height:450px;
+			}
+	  	</style>
+
+		<script src="https://codemirror.net/lib/codemirror.js"></script>
+		<script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/addon/fold/foldcode.js"></script>
+		<script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/addon/fold/foldgutter.js"></script>
+		<script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/addon/fold/brace-fold.js"></script>
+		<script src="https://cdn.rawgit.com/codemirror/CodeMirror/master/mode/javascript/javascript.js"></script>
+		
+	</head>
+
+	<body>
+		<h1>JSON Parser</h1>
+		<div id="container">
+			<textarea id="jsonStringField" placeholder="Enter a json string..." rows=25 spellcheck="false" style="margin-bottom:8px; width:100%"></textarea> <br />
+
+			<input type="button" id = "parseJson" value="Validate JSON" style = "padding:8px;"/>
+			<input type="button" id = "reset" value="Reset" style = "margin-left:4px; padding:8px;" />
+			<input type="button" id = "rawJsonCopy" value="copy" title = "Copy json to clipboard" style = "margin-left:4px; padding:8px; float: right" />
+
+			<p id="status" />
+		</div>
+	</body>
+
+	<script>
+		document.getElementById("parseJson").addEventListener("click", parseJson);
+		document.getElementById("reset").addEventListener("click", reset);
+		document.getElementById("rawJsonCopy").addEventListener("click", copyTextToClipboard);
+		
+		function parseJson()	{
+			var jsonStringField = document.getElementById("jsonStringField");
+			var jsonString = (typeof editor === 'undefined') ? jsonStringField.value : editor.getValue();
+			if(isUrl(jsonString)) {
+				jsonString = getJsonFromUrl(jsonString);
+			}
+			var jsonType = isValidJson(jsonString);
+			var json;
+			try {
+				json = JSON.parse(jsonString);
+			} catch(e) {
+			}
+			var output = JSON.stringify(json, null, 2);	// 2 -> spacing
+			if(typeof json !== 'undefined')	{
+				if(typeof editor !== 'undefined') {
+					editor.setValue(output);
+				}
+				else {
+					jsonStringField.value = output;
+				}
+			}
+			setStatus(jsonType);
+		}
+
+		function isValidJson(str) {
+			if(str === "")	return 0;
+		    try {
+		        JSON.parse(str);
+		    } catch (e) {
+		        return -1;
+		    }
+		    return 1;
+		}
+
+		function parseJsonUtil(str) {
+	        var tabs = [], stack = [], output = "";
+	        for (i = 0; i < str.length; i++) {
+	            var ch = str.charAt(i);
+	            switch (ch) {
+	                case '{':
+	                case '[':
+	                    stack.push(ch+"");
+	                    tabs.push("\t");
+	                case ',':
+	                    output += (ch + "\n" + tabs.toString().replace(/,/g, ""));
+	                    break;
+	                case ']':
+	                case '}':
+	                    stack.pop();
+	                    tabs.pop();
+	                    output += ("\n" + tabs.toString().replace(/,/g, "") + ch);
+	                    break;
+	                default:
+	                    output+=ch;
+	                    break;
+	            }
+	        }
+	        return output.replace(/\t/g, "    ");	//change tab spacing from default 8 -> 4 
+	    }
+	    
+	    function getJsonFromUrl(url)	{
+			var conn = new XMLHttpRequest();
+			conn.open("GET", url, false);
+			conn.send(null);
+			return conn.responseText;
+	    }
+	    
+	    function isUrl(str)	{
+	    	if(str.charAt(0) === '{' || str.charAt(0) === '[')
+	    		return false;
+			var regex = /(http|https):\/\/(\w+:{0,1}\w*)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%!\-\/]))?/;
+			return regex.test(str);
+	    }
+
+		function setStatus(jsonType)	{
+			var status = document.getElementById("status");
+			status.style.display = 'block';
+			status.style.padding = "20px";
+			switch(jsonType)	{
+				case 0:
+					status.innerHTML = "No json string present";
+					status.style.backgroundColor = "red";
+					break;
+				case 1:
+					status.innerHTML = "Valid JSON";
+					status.style.backgroundColor = "green";
+					break;
+				case -1:
+					status.innerHTML = "Invalid JSON";
+					status.style.backgroundColor = "red";
+					break;
+			}
+		}
+		
+		function reset()	{
+			if(typeof editor !== 'undefined') {
+				editor.setValue("");
+			}
+			document.getElementById("jsonStringField").value = "";
+			document.getElementById("status").style.display = 'none';
+		}
+
+		function copyTextToClipboard() {
+			var textArea = document.createElement("textarea");
+
+			textArea.style.position = 'fixed';
+			textArea.style.top = 0;
+			textArea.style.left = 0;
+			textArea.style.width = '2em';
+			textArea.style.height = '2em';
+			textArea.style.padding = 0;
+			textArea.style.border = 'none';
+			textArea.style.outline = 'none';
+			textArea.style.boxShadow = 'none';
+			textArea.style.background = 'transparent';
+
+			var jsonStringField = document.getElementById("jsonStringField");
+			var text = (typeof editor === 'undefined') ? jsonStringField.value : editor.getValue();
+			var json;
+			try {
+				json = JSON.parse(text);
+			} catch(e) {
+			}
+			text = JSON.stringify(json, null, 0);
+			textArea.value = text;
+			document.body.appendChild(textArea);
+			textArea.select();
+			label: try {
+				if(typeof json === 'undefined')	{
+					break label;
+				}
+				var successful = document.execCommand('copy');
+				var msg = successful ? 'success' : 'failed';
+				console.log('Copy to clipboard: ' + msg);
+			} catch (err) {
+				console.log('Oops, unable to copy');
+			}
+			document.body.removeChild(textArea);
+		}
+		
+		window.onload = function() {
+			window.editor = CodeMirror.fromTextArea(document.getElementById("jsonStringField"), {
+				mode: "javascript",
+				lineNumbers: true,
+				lineWrapping: true,
+				foldGutter: true,
+				gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+			});
+			editor.foldCode(CodeMirror.Pos(13, 0));
+  		}
+	</script>
+</html>
